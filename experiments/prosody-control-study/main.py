@@ -55,6 +55,7 @@ except Exception:
 
 # ── Project modules ────────────────────────────────────────────────────────
 from data import get_dataloaders
+from data_real import get_real_dataloaders
 from models import (
     BetaVAECondition, BetaVAENoKLCondition,
     BERTConditionedProsody, BERTFrozenDirectCondition,
@@ -248,19 +249,46 @@ def main():
     parser.add_argument('--output_dir', default='results/')
     parser.add_argument('--device',
                         default='cuda' if torch.cuda.is_available() else 'cpu')
+    parser.add_argument('--use_real_data', action='store_true',
+                        help='Use real ESD audio instead of synthetic data')
+    parser.add_argument('--esd_root', default='../../ESD',
+                        help='Path to ESD extraction root')
+    parser.add_argument('--esd_speakers', type=int, default=5,
+                        help='Number of ESD speakers to use (default: 5)')
+    parser.add_argument('--esd_max_per_emotion', type=int, default=70,
+                        help='Max files per (speaker, emotion) (default: 70)')
+    parser.add_argument('--time_budget', type=int, default=None,
+                        help='Override time_budget_sec hyperparameter')
     args, _ = parser.parse_known_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
     device     = torch.device(args.device)
     start_time = time.time()
 
+    if args.time_budget is not None:
+        hp = dict(hp)
+        hp['time_budget_sec'] = args.time_budget
+
     print(f"\nDevice: {device}")
     print(f"Seeds:  {hp['seeds']}")
     print(f"Budget: {hp['time_budget_sec']}s")
 
     # ── Data (loaded once, shared across all conditions) ──────────────────
-    print("\nLoading synthetic dataset...")
-    train_loader, val_loader, test_loader = get_dataloaders(hp, data_seed=0)
+    if args.use_real_data:
+        print(f"\nLoading real ESD dataset from: {args.esd_root}")
+        print(f"  speakers={args.esd_speakers}, max_per_emotion={args.esd_max_per_emotion}")
+        train_loader, val_loader, test_loader = get_real_dataloaders(
+            hp, esd_root=args.esd_root,
+            n_speakers=args.esd_speakers,
+            max_per_emotion=args.esd_max_per_emotion,
+            data_seed=0,
+        )
+        # Adjust n_emotions to 5 (ESD has 5 emotions, not 6)
+        hp = dict(hp)
+        hp['n_emotions'] = 5
+    else:
+        print("\nLoading synthetic dataset...")
+        train_loader, val_loader, test_loader = get_dataloaders(hp, data_seed=0)
     print(f"  train={len(train_loader.dataset)} "
           f"val={len(val_loader.dataset)} "
           f"test={len(test_loader.dataset)}")
@@ -529,6 +557,7 @@ def main():
 
     results_payload = {
         'hyperparameters': HYPERPARAMETERS,
+        'data_mode':       'real_esd' if args.use_real_data else 'synthetic',
         'metrics':         collected_metrics,
         'all_results':     all_results,
         'wall_time_min':   wall_min,
