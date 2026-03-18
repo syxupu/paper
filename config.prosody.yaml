@@ -1,0 +1,106 @@
+project:
+  name: "prosody-control-study"
+  mode: "full-auto"
+
+research:
+  topic: "Comparative Study of Prosody Control Methods in Emotional Speech Synthesis"
+  domains:
+    - "speech synthesis"
+    - "affective computing"
+    - "natural language processing"
+  daily_paper_count: 15
+  quality_threshold: 0.0
+
+runtime:
+  timezone: "America/New_York"
+  max_parallel_tasks: 3
+  approval_timeout_hours: 12
+  retry_limit: 2
+
+notifications:
+  channel: "console"
+  target: ""
+  on_stage_start: true
+  on_stage_fail: true
+  on_gate_required: true
+
+knowledge_base:
+  backend: "markdown"
+  root: "docs/kb"
+
+openclaw_bridge:
+  use_cron: false
+  use_message: false
+  use_memory: false
+  use_sessions_spawn: false
+  use_web_fetch: false
+  use_browser: false
+
+llm:
+  provider: "openai-compatible"
+  base_url: "http://127.0.0.1:47892"
+  api_key: "local"
+  api_key_env: "OPENAI_API_KEY"
+  primary_model: "claude-sonnet-4-6"
+  fallback_models: []
+
+security:
+  hitl_required_stages: [5, 9, 20]
+  allow_publish_without_approval: false
+  redact_sensitive_logs: true
+
+experiment:
+  mode: "sandbox"
+  time_budget_sec: 600
+  max_iterations: 5
+  metric_key: "primary_metric"
+  metric_direction: "minimize"
+  sandbox:
+    python_path: "/home/vipuser/miniconda3/bin/python3"
+    gpu_required: false
+    max_memory_mb: 4096
+  docker:
+    image: "researchclaw/experiment:latest"
+    gpu_enabled: true
+    memory_limit_mb: 8192
+    network_policy: "pip_only"
+    auto_install_deps: true
+    shm_size_mb: 2048
+    keep_containers: false
+  figure_agent:
+    enabled: true
+    min_figures: 3
+    max_figures: 10
+    max_iterations: 3
+    render_timeout_sec: 30
+    docker_image: "researchclaw/experiment:latest"
+    output_format: "python"
+    nano_banana_enabled: true
+    gemini_model: "gemini-2.5-flash-image"
+    strict_mode: false
+    dpi: 300
+
+export:
+  target_conference: "neurips_2025"
+
+prompts:
+  custom_file: ""
+
+metaclaw_bridge:
+  enabled: false
+  proxy_url: "http://localhost:30000"
+  skills_dir: "~/.metaclaw/skills"
+  fallback_url: ""
+  fallback_api_key: ""
+  prm:
+    enabled: false
+    api_base: ""
+    api_key_env: "PRM_API_KEY"
+    api_key: ""
+    model: "gpt-5.4"
+    votes: 3
+    gate_stages: [5, 9, 15, 20]
+  lesson_to_skill:
+    enabled: true
+    min_severity: "error"
+    max_skills_per_run: 3

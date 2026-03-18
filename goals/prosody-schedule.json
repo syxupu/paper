@@ -1,0 +1,166 @@
+{
+  "tasks": [
+    {
+      "id": "data_prep_emovdb",
+      "name": "Preprocess EmoV-DB: train/val/test split (80/10/10), extract mel-spectrogram, F0, energy, duration features",
+      "depends_on": [],
+      "gpu_count": 0,
+      "estimated_minutes": 30,
+      "priority": 1
+    },
+    {
+      "id": "data_prep_iemocap",
+      "name": "Preprocess IEMOCAP: 5-fold leave-one-speaker-out splits, feature extraction",
+      "depends_on": [],
+      "gpu_count": 0,
+      "estimated_minutes": 45,
+      "priority": 1
+    },
+    {
+      "id": "data_prep_audiobook",
+      "name": "Curate 30-utterance audiobook evaluation set from LibriVox (narrator stance variation)",
+      "depends_on": [],
+      "gpu_count": 0,
+      "estimated_minutes": 20,
+      "priority": 2
+    },
+    {
+      "id": "fastspeech2_onehot_train",
+      "name": "Train FastSpeech2 one-hot baseline: 6-class emotion conditioning via espnet2 TTS module",
+      "depends_on": ["data_prep_emovdb", "data_prep_iemocap"],
+      "gpu_count": 1,
+      "estimated_minutes": 360,
+      "priority": 1
+    },
+    {
+      "id": "beta_vae_b1_train",
+      "name": "Train β-VAE β=1 (standard VAE anchor, minimal disentanglement pressure, z_dim=32)",
+      "depends_on": ["data_prep_emovdb", "data_prep_iemocap"],
+      "gpu_count": 1,
+      "estimated_minutes": 120,
+      "priority": 1
+    },
+    {
+      "id": "beta_vae_b2_train",
+      "name": "Train β-VAE β=2 (moderate disentanglement, warm-up schedule 0→2 over 10k steps)",
+      "depends_on": ["data_prep_emovdb", "data_prep_iemocap"],
+      "gpu_count": 1,
+      "estimated_minutes": 120,
+      "priority": 1
+    },
+    {
+      "id": "beta_vae_b4_train",
+      "name": "Train β-VAE β=4 (high disentanglement, warm-up schedule 0→4 over 10k steps)",
+      "depends_on": ["data_prep_emovdb", "data_prep_iemocap"],
+      "gpu_count": 1,
+      "estimated_minutes": 120,
+      "priority": 1
+    },
+    {
+      "id": "beta_vae_b8_train",
+      "name": "Train β-VAE β=8 (maximum disentanglement, warm-up schedule 0→8 over 10k steps)",
+      "depends_on": ["data_prep_emovdb", "data_prep_iemocap"],
+      "gpu_count": 1,
+      "estimated_minutes": 120,
+      "priority": 1
+    },
+    {
+      "id": "beta_vae_b0_ablation",
+      "name": "Ablation: β-VAE β=0 (pure reconstruction autoencoder, no KL pressure, no controllability)",
+      "depends_on": ["data_prep_emovdb", "data_prep_iemocap"],
+      "gpu_count": 1,
+      "estimated_minutes": 120,
+      "priority": 2
+    },
+    {
+      "id": "bert_conditioned_train",
+      "name": "Train BERT-conditioned prosody: frozen bert-base-uncased [CLS] → 768→64 projection → FastSpeech2 variance adaptor",
+      "depends_on": ["data_prep_emovdb", "data_prep_iemocap"],
+      "gpu_count": 1,
+      "estimated_minutes": 360,
+      "priority": 1
+    },
+    {
+      "id": "bert_no_projection_ablation",
+      "name": "Ablation: BERT conditioning without trainable projection (raw 768-dim → variance adaptor)",
+      "depends_on": ["data_prep_emovdb", "data_prep_iemocap"],
+      "gpu_count": 1,
+      "estimated_minutes": 360,
+      "priority": 2
+    },
+    {
+      "id": "asvspooof_oracle_probe",
+      "name": "Train ASVspoof ECAPA-TDNN linear MOS probe: 192-dim embeddings → 1 MOS score on EmoV-DB (20 epochs, lr=0.001)",
+      "depends_on": ["data_prep_emovdb"],
+      "gpu_count": 1,
+      "estimated_minutes": 20,
+      "priority": 2
+    },
+    {
+      "id": "beta_vae_sweep_eval",
+      "name": "Evaluate β-VAE sweep (H1): UTMOS, MIG score, emotion classification accuracy, Spearman ρ(β, naturalness)",
+      "depends_on": [
+        "beta_vae_b1_train",
+        "beta_vae_b2_train",
+        "beta_vae_b4_train",
+        "beta_vae_b8_train",
+        "beta_vae_b0_ablation"
+      ],
+      "gpu_count": 1,
+      "estimated_minutes": 60,
+      "priority": 1
+    },
+    {
+      "id": "bert_eval",
+      "name": "Evaluate BERT vs one-hot (H2): audiobook appropriateness MOS, ecological validity on 30-utterance set, UTMOS delta",
+      "depends_on": [
+        "fastspeech2_onehot_train",
+        "bert_conditioned_train",
+        "bert_no_projection_ablation",
+        "data_prep_audiobook"
+      ],
+      "gpu_count": 1,
+      "estimated_minutes": 60,
+      "priority": 1
+    },
+    {
+      "id": "asvspooof_oracle_eval",
+      "name": "Evaluate ASVspoof oracle (H3): Spearman ρ and Kendall τ between oracle scores and MOS ranking across all 5 TTS systems",
+      "depends_on": [
+        "asvspooof_oracle_probe",
+        "fastspeech2_onehot_train",
+        "beta_vae_b1_train",
+        "beta_vae_b2_train",
+        "beta_vae_b4_train",
+        "beta_vae_b8_train",
+        "bert_conditioned_train"
+      ],
+      "gpu_count": 1,
+      "estimated_minutes": 10,
+      "priority": 2
+    },
+    {
+      "id": "results_aggregation",
+      "name": "Aggregate all metrics: compute H1 Spearman ρ(β, MOS), H2 MOS delta table, H3 Kendall τ method ranking",
+      "depends_on": [
+        "beta_vae_sweep_eval",
+        "bert_eval",
+        "asvspooof_oracle_eval"
+      ],
+      "gpu_count": 0,
+      "estimated_minutes": 30,
+      "priority": 1
+    }
+  ],
+  "total_gpu_budget": {
+    "gpu_hours_stated": 20.5,
+    "gpu_hours_with_5_seeds": 102.5,
+    "seeds_per_condition": 5,
+    "infrastructure": "Single NVIDIA A100 or V100",
+    "wall_time_hours_sequential_1_seed": 35.25,
+    "wall_time_hours_sequential_5_seeds": 176.25,
+    "wall_time_hours_parallel_5gpu_5seeds": 35.25,
+    "note": "Seed multiplication: each training task × 5 seeds. β warm-up required for β>1 to mitigate training instability risk. Vocoder held constant across all TTS systems during oracle evaluation."
+  },
+  "generated": "2026-03-18"
+}
